@@ -1,37 +1,118 @@
-#define Pecho 6
-#define Ptrig 7
-long duracion, distancia;
-int section; // Variable para almacenar la sección en código Gray
+// Declaración de arreglos y variables globales
+int numBin[2]; // Arreglo para almacenar la representación binaria del número
+int numGrey[2];      // Arreglo para almacenar la representación de código Gray
+int comparacion;  // Variable para realizar la suma de bits binarios
 
-// Función para convertir decimal a código Gray
-int decimalToGray(int num) {
-  return num ^ (num >> 1);
+const int Trigger = 2; // Pin digital 2 para el Trigger del sensor
+const int Echo = 3;    // Pin digital 3 para el Echo del sensor
+
+
+void setup(void) {
+  // Inicialización de comunicación serial
+  Serial.begin(9600);
+
+   // Configuración del sensor de ultrasonido
+  pinMode(Trigger, OUTPUT); // Pin como salida para el Trigger
+  pinMode(Echo, INPUT);     // Pin como entrada para el Echo
+
+  // Configuración de pines como salidas digitales
+  pinMode(10, OUTPUT);
+  pinMode(11, OUTPUT);
+  pinMode(12, OUTPUT);
 }
 
-// Función para imprimir un número en binario de 3 bits
-void printBinary(int num) {
-  for (int i = 2; i >= 0; i--) {
-    Serial.print((num >> i) & 1);
+// Función para convertir un número a su representación binaria
+void Binario(int numero) {
+  switch (numero) {
+    // Casos para los números del 1 al 7
+    case 1:
+      numBin[0] = 0;
+      numBin[1] = 0;
+      numBin[2] = 1;
+      break;
+    case 2:
+      numBin[0] = 0;
+      numBin[1] = 1;
+      numBin[2] = 0;
+      break;
+    case 3:
+      numBin[0] = 0;
+      numBin[1] = 1;
+      numBin[2] = 1;
+      break;
+    case 4:
+      numBin[0] = 1;
+      numBin[1] = 0;
+      numBin[2] = 0;
+      break;
+    case 5:
+      numBin[0] = 1;
+      numBin[1] = 0;
+      numBin[2] = 1;
+      break;
+    case 6:
+      numBin[0] = 1;
+      numBin[1] = 1;
+      numBin[2] = 0;
+      break;
+    case 7:
+      numBin[0] = 1;
+      numBin[1] = 1;
+      numBin[2] = 1;
+      break;
+    // Caso por defecto para otros valores (0 o fuera de rango)
+    default:
+      numBin[0] = 0;
+      numBin[1] = 0;
+      numBin[2] = 0;
   }
 }
 
-void setup() {
-  Serial.begin (9600);       // Inicializa el puerto serie a 9600 baudios
-  pinMode(Pecho, INPUT);     // Define el pin 6 como entrada (echo)
-  pinMode(Ptrig, OUTPUT);    // Define el pin 7 como salida  (trig)
-  pinMode(13, OUTPUT);       // Define el pin 13 como salida (para la alarma)
+// Función para escribir en los pines digitales según la representación de código Gray
+void escribirCompuerta() {
+  for (int i = 0; i < 3; i++) {
+    if (numGrey[i] == 1) {
+      digitalWrite(i + 10, HIGH); // Encender el pin correspondiente
+    } else {
+      digitalWrite(i + 10, LOW);  // Apagar el pin correspondiente
+    }
+  }
+}
+
+// Función para convertir la representación binaria a código Gray
+// Función para convertir la representación binaria a código Gray
+void Grey() {
+  numGrey[0] = numBin[0];
+  numGrey[1] = numBin[0] ^ numBin[1];  // XOR entre el primer y segundo bit
+  numGrey[2] = numBin[1] ^ numBin[2];  // XOR entre el segundo y tercer bit
+}
+
+
+// Función para sumar dos bits binarios y obtener el resultado
+int sumaBinario(int num1, int num2) {
+  comparacion = 0;             // Reinicia la variable de comparación
+  comparacion = num1 + num2;   // Realiza la suma de los bits
+  if (comparacion == 1) {
+    return comparacion;        // Si la suma es 1, retorna 1
+  } else {
+    return 0;                  // Si no, retorna 0
+  }
 }
 
 void loop() {
-  digitalWrite(Ptrig, LOW);
+  // Genera un pulso corto en el pin de Trigger del sensor de ultrasonido
+  digitalWrite(Trigger, LOW);
   delayMicroseconds(2);
-  digitalWrite(Ptrig, HIGH);   // Genera el pulso de trig por 10ms
+  digitalWrite(Trigger, HIGH);   // Genera el pulso de trig por 10ms
   delayMicroseconds(10);
-  digitalWrite(Ptrig, LOW);
+  digitalWrite(Trigger, LOW);
 
-  duracion = pulseIn(Pecho, HIGH);
-  distancia = (duracion / 2) / 29; // Calcula la distancia en centímetros
-  
+  // Lee el tiempo que tarda en llegar el eco
+  long duracion = pulseIn(Echo, HIGH);
+
+  // Calcula la distancia en centímetros
+  int distancia = (duracion / 2) / 29; // Calcula la distancia en centímetros
+
   // Limitar la distancia a 80 cm
   if (distancia > 80) {
     distancia = 80;
@@ -39,37 +120,34 @@ void loop() {
 
   Serial.print("Distancia: ");
   Serial.print(distancia); // Envía el valor de la distancia por el puerto serie
-  
-  // Dividir el rango en 8 secciones
-  section = map(distancia, 0, 80, 0, 7);
-  
-  // Ajustar la sección si está fuera de los límites
-  if (section > 7) {
-    section = 7;
-  }
-  
-  // Convertir la sección a código Gray
-  int graySection = decimalToGray(section);
-  
-  Serial.print(" cm, Sección decimal: ");
+
+  // Convertir la distancia a la sección correspondiente
+  int section = map(distancia, 0, 80, 0, 7);
+
+  // Impresión de la sección decimal y binaria por serial
+  Serial.print(" Sección decimal: ");
   Serial.print(section);
   Serial.print(" (binario: ");
-  printBinary(section);
-  Serial.print("), Sección en código Gray: ");
-  Serial.print(graySection);
-  Serial.print(" (binario: ");
-  printBinary(graySection);
-  Serial.println(")"); // Imprime la sección correspondiente en código Gray
-  digitalWrite(13, LOW); // Pone el pin 13 en bajo
+  Serial.print(section / 4);
+  section %= 4;
+  Serial.print((section / 2) % 2);
+  Serial.print(section % 2);
+  Serial.print(") ");
 
-  if (distancia <= 50 && distancia >= 40) {
-    digitalWrite(13, HIGH); // Pone el pin 13 en alto si la distancia es menor a 10cm
-    Serial.println("Alarma seccion 4......."); // Envía la palabra Alarma por el puerto serie
-  }
+  // Conversión de la representación binaria a código Gray
+  Grey();
 
-  if (distancia <= 70 && distancia >= 60) {
-    digitalWrite(13, HIGH); // Pone el pin 13 en alto si la distancia es menor a 10cm
-    Serial.println("Alarma seccion 6......."); // Envía la palabra Alarma por el puerto serie
-  }
-  delay(400); // Espera 400ms para que se logre ver la distancia en la consola
+  // Impresión de la sección en código Gray binario y su representación binaria por serial
+  Serial.print("Sección en código Gray binario: ");
+  Serial.print(numGrey[0]);
+  Serial.print(numGrey[1]);
+  Serial.print(numGrey[2]);
+  Serial.print("  ______");
+  Serial.println();
+
+  // Escritura en los pines digitales según la representación de código Gray
+  escribirCompuerta();
+
+  // Retardo de 1 segundo antes de repetir el bucle
+  delay(1000);
 }
